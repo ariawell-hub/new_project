@@ -1,0 +1,28 @@
+diff --git a/index.html b/index.html
+index 09e30e5..d6fc6fb 100644
+--- a/index.html
++++ b/index.html
+@@ -254,6 +254,7 @@
+     border-radius: 50%;
+   }
+   .del:hover { color: var(--accent-dark); }
++  .times { color: var(--muted); font-size: .8em; margin-left: 2px; }
+   .history { list-style: none; padding: 0; margin: 12px 0; }
+   .history li {
+     display: flex;
+@@ -641,10 +642,14 @@
+   function renderHistory() {
+     const list = state.history.slice(0, 10);
+     $('#historyCount').textContent = state.history.length ? `${state.history.length}건` : '';
++    // 메뉴별로 지금까지 몇 번 결정했는지 센다
++    const counts = {};
++    state.history.forEach((h) => { counts[h.name] = (counts[h.name] || 0) + 1; });
+     $('#historyList').innerHTML = list.length
+       ? list.map((h) => {
+           const m = state.menus.find((x) => x.name === h.name);
+-          return `<li><span>${m ? m.emoji : '🍽️'} ${esc(h.name)}</span><span class="when">${R.fmtDay(h.date, todayStr())}</span></li>`;
++          const label = counts[h.name] > 1 ? `${h.name} <small class="times">×${counts[h.name]}</small>` : h.name;
++          return `<li><span>${m ? m.emoji : '🍽️'} ${label}</span><span class="when">${R.fmtDay(h.date, todayStr())}</span></li>`;
+         }).join('')
+       : '<li class="none">아직 결정한 메뉴가 없어요</li>';
+     $('#clearHistory').hidden = !list.length;

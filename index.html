@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오늘 뭐 먹지? 🎰</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎰</text></svg>">
+<style>
+  :root {
+    --font: -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    --bg: #fff7fb;
+    --card: #ffffff;
+    --text: #4a3f55;
+    --muted: #8b7f99;
+    --line: #f3e3ee;
+    --chip: #fdeff5;
+    --accent: #ff8fab;
+    --accent-dark: #e9738f;
+    --accent-2: #a0c4ff;
+    --glow: rgba(255, 143, 171, .35);
+    --shadow: 0 6px 20px rgba(255, 143, 171, .16);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1f1a24;
+      --card: #2a2330;
+      --text: #f3eaf6;
+      --muted: #b3a7bd;
+      --line: #3d3344;
+      --chip: #372e3d;
+      --glow: rgba(255, 143, 171, .2);
+      --shadow: 0 6px 20px rgba(0, 0, 0, .35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1f1a24;
+    --card: #2a2330;
+    --text: #f3eaf6;
+    --muted: #b3a7bd;
+    --line: #3d3344;
+    --chip: #372e3d;
+    --glow: rgba(255, 143, 171, .2);
+    --shadow: 0 6px 20px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.5;
+    overflow-x: clip;
+  }
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* 헤더 */
+  .top { text-align: center; }
+  .date { margin: 0; color: var(--muted); font-size: 13px; }
+  h1 { margin: 2px 0 0; font-size: 28px; letter-spacing: -0.02em; }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* 필터 */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .chip {
+    border: 0;
+    background: var(--chip);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    font-size: 14px;
+  }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .track {
+    width: 40px; height: 24px;
+    border-radius: 999px;
+    background: var(--line);
+    position: relative;
+    transition: background .2s;
+  }
+  .thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    transition: transform .2s;
+  }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track .thumb { transform: translateX(16px); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  select, input[type="text"] {
+    font: inherit;
+    color: var(--text);
+    background: var(--chip);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px 10px;
+  }
+  select:disabled { opacity: .5; }
+
+  /* 원판 */
+  .stage { text-align: center; }
+  .wheel-wrap {
+    position: relative;
+    width: min(320px, 100%);
+    aspect-ratio: 1;
+    margin: 14px auto 0;
+  }
+  .wheel-wrap.is-empty { border: 3px dashed var(--line); border-radius: 50%; }
+  .wheel-wrap.is-empty .hub, .wheel-wrap.is-empty .pointer { display: none; }
+  /* 회전하는 정사각형 canvas가 레이아웃 폭을 넓히지 않도록 원 모양으로 잘라낸다 */
+  .wheel-clip {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 0 0 6px var(--card), 0 0 32px var(--glow);
+  }
+  .wheel-wrap.is-empty .wheel-clip { box-shadow: none; }
+  #wheel {
+    --spin: 4s;
+    width: 100%; height: 100%;
+    display: block;
+    transition: transform var(--spin) cubic-bezier(.15, .85, .2, 1);
+  }
+  .pointer {
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 28px solid var(--accent);
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .2));
+    z-index: 2;
+  }
+  .hub {
+    position: absolute; inset: 0;
+    margin: auto;
+    width: 18%; height: 18%;
+    border-radius: 50%;
+    background: var(--card);
+    display: grid; place-items: center;
+    font-size: 22px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+    z-index: 1;
+  }
+  .empty {
+    position: absolute; inset: 0;
+    margin: 0;
+    display: grid; place-items: center;
+    padding: 24px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .info { margin: 12px 0 0; font-size: 13px; color: var(--muted); min-height: 1.5em; }
+
+  .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  .btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 11px 18px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .1s, opacity .2s;
+  }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .btn.primary { background: var(--accent); color: #fff; box-shadow: 0 4px 0 var(--accent-dark); }
+  .btn.ghost { background: var(--chip); color: var(--text); }
+  .btn.small { padding: 7px 14px; font-size: 14px; }
+  #spinBtn { font-size: 18px; padding: 14px 30px; }
+
+  /* 결과 */
+  .result { text-align: center; animation: pop .35s ease-out; }
+  .drip { margin: 0; color: var(--muted); font-size: 14px; }
+  .pick { display: flex; flex-direction: column; align-items: center; margin: 4px 0; }
+  .pick-emoji { font-size: 56px; line-height: 1.15; }
+  .pick strong { font-size: 30px; letter-spacing: -0.02em; }
+  @keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* 메뉴 관리 / 기록 */
+  summary { cursor: pointer; font-weight: 700; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "▾"; float: right; color: var(--muted); transition: transform .2s; }
+  details[open] summary::after { transform: rotate(180deg); }
+  .count { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 4px; }
+  .add { display: flex; gap: 6px; margin: 12px 0 4px; }
+  .add input { flex: 1; min-width: 0; }
+  .group h3 { font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .item {
+    display: inline-flex;
+    align-items: center;
+    background: var(--chip);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 14px;
+  }
+  .item label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 0; }
+  .item input { accent-color: var(--accent); margin: 0; }
+  .item.off label { opacity: .5; }
+  .badge {
+    font-size: 11px;
+    background: var(--accent-2);
+    color: #1f2a44;
+    border-radius: 999px;
+    padding: 0 6px;
+  }
+  .del {
+    border: 0;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    margin: 0 -6px 0 2px;
+    border-radius: 50%;
+  }
+  .del:hover { color: var(--accent-dark); }
+  .history { list-style: none; padding: 0; margin: 12px 0; }
+  .history li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 14px;
+  }
+  .history .when { color: var(--muted); white-space: nowrap; }
+  .history .none { color: var(--muted); justify-content: center; border: 0; }
+
+  .shake { animation: shake .35s; }
+  @keyframes shake {
+    25% { transform: translateX(-6px); }
+    50% { transform: translateX(6px); }
+    75% { transform: translateX(-4px); }
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%; bottom: 24px;
+    transform: translate(-50%, 20px);
+    max-width: calc(100% - 32px);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    z-index: 60;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .confetti {
+    position: fixed;
+    top: -14px;
+    width: 8px; height: 12px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 50;
+    animation: fall 1.8s ease-in forwards;
+  }
+  @keyframes fall { to { transform: translate(var(--dx), 105vh) rotate(var(--rot)); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    #wheel { --spin: .8s; }
+    .result { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <p class="date" id="today"></p>
+    <h1>오늘 뭐 먹지? <span aria-hidden="true">🎰</span></h1>
+    <p class="sub">점심 메뉴 고민은 룰렛에게 맡기세요</p>
+  </header>
+
+  <section class="card" aria-label="필터">
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <label class="switch">
+        <input type="checkbox" id="exclude">
+        <span class="track"><span class="thumb"></span></span>
+        최근 먹은 거 제외
+      </label>
+      <select id="days" aria-label="제외 기간">
+        <option value="1">1일</option>
+        <option value="3">3일</option>
+        <option value="7">7일</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="wheel-wrap" id="wheelWrap">
+      <div class="pointer" aria-hidden="true"></div>
+      <div class="wheel-clip"><canvas id="wheel" role="img" aria-label="메뉴 룰렛 원판"></canvas></div>
+      <div class="hub" aria-hidden="true">🍴</div>
+      <p class="empty" id="empty" hidden>후보가 없어요 🥲<br>필터나 최근 제외를 풀어보세요</p>
+    </div>
+    <p class="info" id="info"></p>
+    <div class="actions">
+      <button class="btn primary" id="spinBtn" type="button">🎰 돌리기</button>
+      <button class="btn ghost" id="shuffleBtn" type="button">🔀 후보 섞기</button>
+    </div>
+  </section>
+
+  <section class="card result" id="result" hidden aria-live="polite">
+    <p class="drip" id="drip"></p>
+    <div class="pick">
+      <span class="pick-emoji" id="pickEmoji"></span>
+      <strong id="pickName"></strong>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="decideBtn" type="button">이걸로 결정!</button>
+      <button class="btn ghost" id="againBtn" type="button">다시 돌리기</button>
+      <button class="btn ghost" id="shareBtn" type="button">📋 공유 문구 복사</button>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>🍽️ 메뉴 관리 <span class="count" id="menuCount"></span></summary>
+    <form class="add" id="addForm">
+      <input type="text" id="addName" maxlength="12" placeholder="회사 앞 순대국" aria-label="메뉴 이름" autocomplete="off">
+      <select id="addCat" aria-label="카테고리"></select>
+      <button class="btn small primary" type="submit">추가</button>
+    </form>
+    <div id="menuList"></div>
+  </details>
+
+  <details class="card">
+    <summary>🗓️ 최근 기록 <span class="count" id="historyCount"></span></summary>
+    <ul class="history" id="historyList"></ul>
+    <button class="btn ghost small" id="clearHistory" type="button">기록 지우기</button>
+  </details>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="roulette.js"></script>
+<script>
+  if (!window.Roulette) {
+    document.body.textContent = "roulette.js를 불러오지 못했어요. index.html과 같은 폴더에 있어야 해요.";
+    throw new Error("roulette.js not loaded");
+  }
+  const R = window.Roulette;
+  const { CATS, CAT_EMOJI, WHEEL_SIZE } = R;
+  const COLORS = ['#FFB5C2', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#A0C4FF', '#BDB2FF', '#FFC6FF'];
+  const KEY = 'lunchRoulette.v1';
+  const CANVAS_FONT = '"Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+
+  const $ = (s) => document.querySelector(s);
+  const esc = R.escapeHtml;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- 상태 저장 ----------
+  function load() {
+    try {
+      return R.normalizeState(JSON.parse(localStorage.getItem(KEY)));
+    } catch (e) { /* 저장된 값이 깨졌거나 localStorage를 못 쓰면 기본값 */ }
+    return R.defaults();
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 시크릿 창 등: 저장만 생략 */ }
+  }
+  let state = load();
+
+  const todayStr = () => R.fmtDate(new Date());
+  const isRecent = (name) => R.isRecent(state.history, name, todayStr(), state.settings.days);
+  const buildPool = () => R.buildPool(state.menus, state.settings, state.history, todayStr());
+
+  // ---------- 원판 ----------
+  const canvas = $('#wheel');
+  const ctx = canvas.getContext('2d');
+  let wheelItems = [];
+  let poolSize = 0;
+
+  function fitLabel(text, maxW) {
+    for (let fs = 16; fs >= 11; fs--) {
+      ctx.font = `600 ${fs}px ${CANVAS_FONT}`;
+      if (ctx.measureText(text).width <= maxW) return text;
+    }
+    const chars = Array.from(text);
+    while (chars.length > 2 && ctx.measureText(chars.join('') + '…').width > maxW) chars.pop();
+    return chars.join('') + '…';
+  }
+
+  function drawWheel() {
+    const size = canvas.clientWidth || 300;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    const n = wheelItems.length;
+    if (!n) return;
+
+    const r = size / 2;
+    const seg = (Math.PI * 2) / n;
+    for (let i = 0; i < n; i++) {
+      // i번째 칸은 12시 방향에서 시계방향으로 [i·seg, (i+1)·seg)
+      const start = -Math.PI / 2 + i * seg;
+      ctx.beginPath();
+      ctx.moveTo(r, r);
+      ctx.arc(r, r, r, start, start + seg);
+      ctx.closePath();
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 왼쪽 절반 칸은 글씨가 뒤집히지 않도록 반대로 돌려서 쓴다
+      const mid = start + seg / 2;
+      const flip = Math.cos(mid) < -1e-6;
+      ctx.save();
+      ctx.translate(r, r);
+      ctx.rotate(flip ? mid + Math.PI : mid);
+      ctx.textAlign = flip ? 'left' : 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#4a3f55';
+      const label = fitLabel(`${wheelItems[i].emoji} ${wheelItems[i].name}`, r * 0.78 - 14);
+      ctx.fillText(label, flip ? -(r - 14) : r - 14, 0);
+      ctx.restore();
+    }
+  }
+
+  let pendingRefresh = false;
+  function refreshWheel() {
+    if (spinning) { pendingRefresh = true; return; }
+    const pool = buildPool();
+    poolSize = pool.length;
+    wheelItems = R.sample(pool, WHEEL_SIZE);
+    drawWheel();
+
+    const empty = poolSize === 0;
+    $('#empty').hidden = !empty;
+    $('#wheelWrap').classList.toggle('is-empty', empty);
+    $('#info').textContent = empty ? ''
+      : poolSize > wheelItems.length ? `후보 ${poolSize}개 중 ${wheelItems.length}개를 올렸어요`
+      : `후보 ${poolSize}개`;
+    updateButtons();
+  }
+
+  // ---------- 돌리기 ----------
+  const spinBtn = $('#spinBtn');
+  const shuffleBtn = $('#shuffleBtn');
+  const resultCard = $('#result');
+  let rotation = 0;
+  let spinning = false;
+  let spinCount = 0;
+  let pending = null;
+  let current = null;
+  let spinTimer = null;
+
+  function updateButtons() {
+    spinBtn.disabled = spinning || wheelItems.length === 0;
+    shuffleBtn.disabled = spinning || poolSize < 2;
+    $('#decideBtn').disabled = spinning;
+    $('#againBtn').disabled = spinning;
+    $('#shareBtn').disabled = spinning;
+  }
+
+  function spin() {
+    if (spinning || !wheelItems.length) return;
+    spinCount++;
+    const n = wheelItems.length;
+    if (n === 1) { showResult(wheelItems[0], true); return; }
+
+    // 결과를 먼저 정하고, 그 칸의 중심이 12시 포인터에 오도록 회전량을 계산한다
+    const w = Math.floor(Math.random() * n);
+    rotation = R.spinRotation(rotation, n, w, Math.random() * 2 - 1);
+
+    pending = wheelItems[w];
+    spinning = true;
+    resultCard.hidden = true;
+    spinBtn.textContent = '두구두구…';
+    updateButtons();
+    canvas.style.transform = `rotate(${rotation}deg)`;
+
+    // transitionend가 안 오는 경우를 대비한 안전장치
+    const duration = parseFloat(getComputedStyle(canvas).transitionDuration) * 1000 || 4000;
+    clearTimeout(spinTimer);
+    spinTimer = setTimeout(finishSpin, duration + 300);
+  }
+
+  function finishSpin() {
+    if (!spinning) return;
+    spinning = false;
+    clearTimeout(spinTimer);
+    spinBtn.textContent = '🎰 돌리기';
+    showResult(pending);
+    if (pendingRefresh) { pendingRefresh = false; refreshWheel(); } else updateButtons();
+  }
+  canvas.addEventListener('transitionend', (e) => { if (e.propertyName === 'transform') finishSpin(); });
+
+  function showResult(item, onlyOne = false) {
+    current = item;
+    $('#pickEmoji').textContent = item.emoji;
+    $('#pickName').textContent = item.name;
+    $('#drip').textContent = onlyOne ? '고민할 필요도 없네요 👉' : R.dripMessage(spinCount);
+    resultCard.hidden = false;
+    confetti();
+    resultCard.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+  }
+
+  function decide() {
+    if (!current) return;
+    state.history.unshift({ name: current.name, date: todayStr() });
+    state.history = state.history.slice(0, 50);
+    save();
+    toast(state.settings.exclude
+      ? `기록 완료! ${current.name}은(는) ${state.settings.days}일간 룰렛에서 빠져요`
+      : '기록 완료! 맛점하세요 😋');
+    current = null;
+    spinCount = 0;
+    resultCard.hidden = true;
+    renderMenus();
+    renderHistory();
+    refreshWheel();
+  }
+
+  async function share() {
+    if (!current) return;
+    const text = R.shareText(current);
+    const done = '복사했어요! 팀 채팅방에 붙여넣으세요';
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(done);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) { /* 미지원 */ }
+      ta.remove();
+      toast(ok ? done : '복사에 실패했어요 😢');
+    }
+  }
+
+  // ---------- 효과 ----------
+  function confetti() {
+    if (reduceMotion) return;
+    for (let i = 0; i < 40; i++) {
+      const p = document.createElement('i');
+      p.className = 'confetti';
+      p.style.left = Math.random() * 96 + 'vw';
+      p.style.background = COLORS[i % COLORS.length];
+      p.style.animationDelay = Math.random() * 0.4 + 's';
+      p.style.animationDuration = 1.4 + Math.random() * 0.8 + 's';
+      p.style.setProperty('--dx', Math.random() * 120 - 60 + 'px');
+      p.style.setProperty('--rot', Math.random() * 720 - 360 + 'deg');
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 2700);
+    }
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function shake(el) {
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+  }
+
+  // ---------- 렌더링 ----------
+  function renderChips() {
+    $('#chips').innerHTML = CATS.map((c) =>
+      `<button class="chip" type="button" data-cat="${c}" aria-pressed="${state.settings.cats.includes(c)}">${CAT_EMOJI[c]} ${c}</button>`
+    ).join('');
+  }
+
+  function renderMenuCount() {
+    const on = state.menus.filter((m) => m.on).length;
+    $('#menuCount').textContent = `${on}/${state.menus.length}개 선택`;
+  }
+
+  function renderMenus() {
+    renderMenuCount();
+    $('#menuList').innerHTML = CATS.map((cat) => {
+      const items = state.menus.filter((m) => m.cat === cat);
+      if (!items.length) return '';
+      return `<div class="group"><h3>${CAT_EMOJI[cat]} ${cat}</h3><div class="items">${items.map((m) => `
+        <span class="item${m.on ? '' : ' off'}">
+          <label><input type="checkbox" data-id="${m.id}"${m.on ? ' checked' : ''}> ${m.emoji} ${esc(m.name)}${isRecent(m.name) ? ' <span class="badge">최근</span>' : ''}</label>
+          ${m.custom ? `<button type="button" class="del" data-del="${m.id}" aria-label="${esc(m.name)} 삭제">✕</button>` : ''}
+        </span>`).join('')}</div></div>`;
+    }).join('');
+  }
+
+  function renderHistory() {
+    const list = state.history.slice(0, 10);
+    $('#historyCount').textContent = state.history.length ? `${state.history.length}건` : '';
+    $('#historyList').innerHTML = list.length
+      ? list.map((h) => {
+          const m = state.menus.find((x) => x.name === h.name);
+          return `<li><span>${m ? m.emoji : '🍽️'} ${esc(h.name)}</span><span class="when">${R.fmtDay(h.date, todayStr())}</span></li>`;
+        }).join('')
+      : '<li class="none">아직 결정한 메뉴가 없어요</li>';
+    $('#clearHistory').hidden = !list.length;
+  }
+
+  // ---------- 이벤트 ----------
+  spinBtn.addEventListener('click', spin);
+  $('#againBtn').addEventListener('click', spin);
+  $('#decideBtn').addEventListener('click', decide);
+  $('#shareBtn').addEventListener('click', share);
+  shuffleBtn.addEventListener('click', refreshWheel);
+
+  $('#chips').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    const cat = chip.dataset.cat;
+    const cats = state.settings.cats;
+    state.settings.cats = cats.includes(cat) ? cats.filter((c) => c !== cat) : [...cats, cat];
+    save();
+    chip.setAttribute('aria-pressed', String(state.settings.cats.includes(cat)));
+    refreshWheel();
+  });
+
+  const excludeEl = $('#exclude');
+  const daysEl = $('#days');
+  excludeEl.addEventListener('change', () => {
+    state.settings.exclude = excludeEl.checked;
+    daysEl.disabled = !excludeEl.checked;
+    save();
+    refreshWheel();
+  });
+  daysEl.addEventListener('change', () => {
+    state.settings.days = Number(daysEl.value);
+    save();
+    renderMenus();
+    refreshWheel();
+  });
+
+  $('#menuList').addEventListener('change', (e) => {
+    const id = e.target.dataset.id;
+    const m = id && state.menus.find((x) => x.id === id);
+    if (!m) return;
+    m.on = e.target.checked;
+    e.target.closest('.item').classList.toggle('off', !m.on);
+    save();
+    renderMenuCount();
+    refreshWheel();
+  });
+  $('#menuList').addEventListener('click', (e) => {
+    const btn = e.target.closest('.del');
+    if (!btn) return;
+    const m = state.menus.find((x) => x.id === btn.dataset.del);
+    state.menus = state.menus.filter((x) => x.id !== btn.dataset.del);
+    save();
+    renderMenus();
+    refreshWheel();
+    if (m) toast(`'${m.name}' 삭제했어요`);
+  });
+
+  $('#addForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('#addName');
+    const name = input.value.trim();
+    const cat = $('#addCat').value;
+    if (!name || R.isDuplicateName(state.menus, name)) {
+      shake(input);
+      input.focus();
+      return;
+    }
+    state.menus.push({ id: 'c' + Date.now(), name, cat, emoji: CAT_EMOJI[cat], on: true, custom: true });
+    save();
+    input.value = '';
+    renderMenus();
+    refreshWheel();
+    toast(state.settings.cats.includes(cat) ? `'${name}' 추가했어요!` : `'${name}' 추가! (${cat} 필터가 꺼져 있어요)`);
+  });
+
+  $('#clearHistory').addEventListener('click', () => {
+    state.history = [];
+    save();
+    renderMenus();
+    renderHistory();
+    refreshWheel();
+    toast('기록을 지웠어요');
+  });
+
+  window.addEventListener('resize', drawWheel);
+
+  // ---------- 시작 ----------
+  $('#today').textContent = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+  $('#addCat').innerHTML = CATS.map((c) => `<option value="${c}">${CAT_EMOJI[c]} ${c}</option>`).join('');
+  excludeEl.checked = state.settings.exclude;
+  daysEl.value = String(state.settings.days);
+  daysEl.disabled = !state.settings.exclude;
+  renderChips();
+  renderMenus();
+  renderHistory();
+  refreshWheel();
+</script>
+</body>
+</html>

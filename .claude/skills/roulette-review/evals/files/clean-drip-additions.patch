@@ -1,0 +1,29 @@
+diff --git a/roulette.js b/roulette.js
+index 393d23e..3d2156d 100644
+--- a/roulette.js
++++ b/roulette.js
+@@ -30,6 +30,8 @@
+     '한 번 더? 그럴 수 있죠',
+     '결정장애 의심 단계 🤔',
+     '팀장님이 기다리고 계십니다',
++    '이쯤 되면 룰렛이 아니라 운명입니다 🔮',
++    '편의점 도시락도 훌륭한 선택입니다 🍙',
+     '점심시간 끝나요 ⏰ 그냥 이거 드세요',
+   ];
+   const DAYS_OPTIONS = [1, 3, 7];
+diff --git a/test/roulette.test.js b/test/roulette.test.js
+index 786e29e..2b372ce 100644
+--- a/test/roulette.test.js
++++ b/test/roulette.test.js
+@@ -91,6 +91,11 @@ test('normalizeState는 settings.cats가 배열이 아니어도 메뉴를 잃지
+   assert.deepEqual(s.settings.cats, R.CATS);
+ });
+ 
++test('드립 멘트는 비어 있지 않고 서로 겹치지 않는다', () => {
++  assert.ok(R.DRIPS.every((s) => typeof s === 'string' && s.trim()));
++  assert.equal(new Set(R.DRIPS).size, R.DRIPS.length);
++});
++
+ test('isDuplicateName은 앞뒤 공백과 대소문자를 무시한다', () => {
+   const menus = [menu('Pho')];
+   assert.equal(R.isDuplicateName(menus, '  pho '), true);

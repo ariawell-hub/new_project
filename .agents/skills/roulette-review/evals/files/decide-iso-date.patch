@@ -1,0 +1,16 @@
+diff --git a/index.html b/index.html
+index 09e30e5..4f1855b 100644
+--- a/index.html
++++ b/index.html
+@@ -546,7 +546,10 @@
+ 
+   function decide() {
+     if (!current) return;
+-    state.history.unshift({ name: current.name, date: todayStr() });
++    const now = new Date();
++    // 날짜와 함께 결정한 시각도 남긴다 (나중에 "주로 몇 시에 정하는지" 통계용)
++    const stamp = now.toISOString();
++    state.history.unshift({ name: current.name, date: stamp.slice(0, 10), at: stamp });
+     state.history = state.history.slice(0, 50);
+     save();
+     toast(state.settings.exclude

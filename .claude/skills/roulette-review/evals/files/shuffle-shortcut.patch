@@ -1,0 +1,22 @@
+diff --git a/index.html b/index.html
+index 09e30e5..8da8ab8 100644
+--- a/index.html
++++ b/index.html
+@@ -733,6 +733,17 @@
+ 
+   window.addEventListener('resize', drawWheel);
+ 
++  // 키보드 단축키: 스페이스 = 돌리기, S = 후보 섞기
++  document.addEventListener('keydown', (e) => {
++    if (e.target.closest('input, select, textarea, button, summary')) return;
++    if (e.code === 'Space') { e.preventDefault(); spin(); }
++    if (e.code === 'KeyS') {
++      // 섞기는 원판 항목만 다시 뽑으면 되니 바로 그린다
++      wheelItems = R.sample(buildPool(), WHEEL_SIZE);
++      drawWheel();
++    }
++  });
++
+   // ---------- 시작 ----------
+   $('#today').textContent = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+   $('#addCat').innerHTML = CATS.map((c) => `<option value="${c}">${CAT_EMOJI[c]} ${c}</option>`).join('');

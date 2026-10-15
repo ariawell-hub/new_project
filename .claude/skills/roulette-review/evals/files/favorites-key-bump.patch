@@ -1,0 +1,81 @@
+diff --git a/index.html b/index.html
+index 09e30e5..b53b25e 100644
+--- a/index.html
++++ b/index.html
+@@ -254,6 +254,7 @@
+     border-radius: 50%;
+   }
+   .del:hover { color: var(--accent-dark); }
++  .fav { border: 0; background: none; cursor: pointer; font-size: 12px; padding: 2px 4px; color: var(--muted); }
+   .history { list-style: none; padding: 0; margin: 12px 0; }
+   .history li {
+     display: flex;
+@@ -386,7 +387,8 @@
+   const R = window.Roulette;
+   const { CATS, CAT_EMOJI, WHEEL_SIZE } = R;
+   const COLORS = ['#FFB5C2', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#A0C4FF', '#BDB2FF', '#FFC6FF'];
+-  const KEY = 'lunchRoulette.v1';
++  // v2: 메뉴에 즐겨찾기(fav) 필드가 생겨서 저장 키를 올림
++  const KEY = 'lunchRoulette.v2';
+   const CANVAS_FONT = '"Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+ 
+   const $ = (s) => document.querySelector(s);
+@@ -633,6 +635,7 @@
+       return `<div class="group"><h3>${CAT_EMOJI[cat]} ${cat}</h3><div class="items">${items.map((m) => `
+         <span class="item${m.on ? '' : ' off'}">
+           <label><input type="checkbox" data-id="${m.id}"${m.on ? ' checked' : ''}> ${m.emoji} ${esc(m.name)}${isRecent(m.name) ? ' <span class="badge">최근</span>' : ''}</label>
++          <button type="button" class="fav" data-fav="${m.id}" aria-pressed="${m.fav}" aria-label="${esc(m.name)} 즐겨찾기">${m.fav ? '⭐' : '☆'}</button>
+           ${m.custom ? `<button type="button" class="del" data-del="${m.id}" aria-label="${esc(m.name)} 삭제">✕</button>` : ''}
+         </span>`).join('')}</div></div>`;
+     }).join('');
+@@ -694,6 +697,12 @@
+     refreshWheel();
+   });
+   $('#menuList').addEventListener('click', (e) => {
++    const star = e.target.closest('.fav');
++    if (star) {
++      const f = state.menus.find((x) => x.id === star.dataset.fav);
++      if (f) { f.fav = !f.fav; save(); renderMenus(); }
++      return;
++    }
+     const btn = e.target.closest('.del');
+     if (!btn) return;
+     const m = state.menus.find((x) => x.id === btn.dataset.del);
+diff --git a/roulette.js b/roulette.js
+index 393d23e..78c22aa 100644
+--- a/roulette.js
++++ b/roulette.js
+@@ -43,7 +43,7 @@
+   // ---------- 상태 ----------
+   function defaults() {
+     return {
+-      menus: PRESET.map(([cat, name, emoji], i) => ({ id: 'p' + i, name, cat, emoji, on: true, custom: false })),
++      menus: PRESET.map(([cat, name, emoji], i) => ({ id: 'p' + i, name, cat, emoji, on: true, custom: false, fav: false })),
+       history: [],
+       settings: { cats: [...CATS], exclude: true, days: DEFAULT_DAYS },
+     };
+@@ -55,7 +55,7 @@
+     if (!raw || typeof raw !== 'object' || !Array.isArray(raw.menus) || !Array.isArray(raw.history)) return base;
+ 
+     const menus = raw.menus.filter((m) => m && typeof m.id === 'string' && typeof m.name === 'string' && CATS.includes(m.cat))
+-      .map((m) => ({ ...m, on: m.on !== false, custom: m.custom === true, emoji: m.emoji || CAT_EMOJI[m.cat] }));
++      .map((m) => ({ ...m, on: m.on !== false, custom: m.custom === true, fav: m.fav === true, emoji: m.emoji || CAT_EMOJI[m.cat] }));
+     const history = raw.history.filter((h) => h && typeof h.name === 'string' && DATE_RE.test(h.date));
+ 
+     const s = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
+diff --git a/test/roulette.test.js b/test/roulette.test.js
+index 786e29e..cecfb3d 100644
+--- a/test/roulette.test.js
++++ b/test/roulette.test.js
+@@ -91,6 +91,11 @@ test('normalizeState는 settings.cats가 배열이 아니어도 메뉴를 잃지
+   assert.deepEqual(s.settings.cats, R.CATS);
+ });
+ 
++test('normalizeState는 fav가 없는 예전 메뉴에 false를 채운다', () => {
++  const s = R.normalizeState({ menus: [menu('국밥'), menu('라멘', '일식', { fav: true })], history: [] });
++  assert.deepEqual(s.menus.map((m) => m.fav), [false, true]);
++});
++
+ test('isDuplicateName은 앞뒤 공백과 대소문자를 무시한다', () => {
+   const menus = [menu('Pho')];
+   assert.equal(R.isDuplicateName(menus, '  pho '), true);

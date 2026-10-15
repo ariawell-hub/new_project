@@ -1,0 +1,2 @@
+# 줄바꿈을 LF로 고정한다. 특히 .githooks/pre-commit 은 CRLF가 섞이면 sh가 실행하지 못한다.
+* text=auto eol=lf

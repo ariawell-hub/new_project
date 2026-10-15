@@ -1,0 +1,93 @@
+{
+  "skill_name": "roulette-review",
+  "setup": "각 eval은 깨끗한 프로젝트 사본에서 files의 patch를 `git apply --index`로 스테이지한 뒤 prompt를 보낸다. 패치를 적용해도 npm run check는 통과하므로 리뷰로만 찾을 수 있다.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "history-count-xss",
+      "prompt": "최근 기록 목록에 메뉴별로 몇 번 먹었는지 횟수(×2 같은 거) 붙이는 기능 추가했어. 스테이지해 뒀으니까 커밋 전에 한번 봐줘.",
+      "expected_output": "renderHistory에서 esc(h.name)이 빠져 메뉴 이름이 innerHTML에 그대로 들어가는 문제를 🔴로 지적하고, 재현 근거와 esc 수정안을 낸다.",
+      "files": [
+        "evals/files/history-count-xss.patch"
+      ],
+      "expectations": [
+        "npm run check(린트→빌드→테스트 전체)를 실행했다",
+        "스킬 보고 형식을 따랐다: '## 리뷰 결과' 제목과 '자동 검사:' 줄",
+        "기록 목록의 메뉴 이름 이스케이프(esc) 누락을 가장 심각한 문제로 지적했다",
+        "코드를 실제로 실행해 태그가 요소로 만들어지는 것을 재현했다",
+        "esc(h.name)을 먼저 적용하는 수정안을 냈다",
+        "횟수 계산을 roulette.js 순수 함수로 옮겨 테스트하자고 제안했다",
+        "{}로 셀 때 constructor 같은 이름이 깨지는 문제를 찾았다"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "decide-iso-date",
+      "prompt": "기록에 결정한 시각도 같이 남기려고 decide() 조금 고쳤어. 이 변경 괜찮아? 문제 없으면 바로 커밋할게",
+      "expected_output": "toISOString()이 UTC라 한국 시간 오전 9시 전에 전날 날짜로 저장되는 문제를 🔴로 지적하고, R.fmtDate(now)로 고치게 한다.",
+      "files": [
+        "evals/files/decide-iso-date.patch"
+      ],
+      "expectations": [
+        "npm run check(린트→빌드→테스트 전체)를 실행했다",
+        "스킬 보고 형식을 따랐다: '## 리뷰 결과' 제목과 '자동 검사:' 줄",
+        "toISOString()이 UTC라 오전 9시 전에 전날로 저장되는 문제를 가장 심각한 문제로 지적했다",
+        "최근 N일 제외가 하루 일찍 풀리는 영향을 설명했다",
+        "Asia/Seoul 시간대로 실제 재현했다",
+        "R.fmtDate(now)를 쓰는 수정안을 냈다",
+        "기록 항목 생성 로직을 roulette.js로 옮겨 테스트하자고 제안했다"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "favorites-key-bump",
+      "prompt": "메뉴 즐겨찾기(⭐) 기능 넣었어. 저장 구조가 바뀌어서 저장 키도 v2로 올렸고 normalizeState 테스트도 추가함. 리뷰해줘",
+      "expected_output": "저장 키를 v2로 올리면서 옮겨 담는 코드가 없어 기존 메뉴·기록·설정이 사라지는 문제를 🔴로 지적한다. normalizeState가 이미 기본값을 채우므로 키를 올릴 필요가 없다는 점도 짚는다.",
+      "files": [
+        "evals/files/favorites-key-bump.patch"
+      ],
+      "expectations": [
+        "npm run check(린트→빌드→테스트 전체)를 실행했다",
+        "스킬 보고 형식을 따랐다: '## 리뷰 결과' 제목과 '자동 검사:' 줄",
+        "저장 키를 v2로 올려 기존 메뉴·기록·설정이 사라지는 문제를 가장 심각한 문제로 지적했다",
+        "normalizeState가 이미 fav 기본값을 채우므로 키를 올릴 필요가 없다고 짚었다",
+        "v1 키에 데이터를 넣고 실제로 불러와 재현했다",
+        "추가 폼으로 만든 메뉴가 aria-pressed=\"undefined\"가 되는 문제를 찾았다",
+        "키·마이그레이션 로직을 roulette.js로 옮겨 테스트하자고 제안했다"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "shuffle-shortcut",
+      "prompt": "키보드 단축키 넣어봤어 (스페이스=돌리기, S=섞기). 회사에서 마우스 없이 쓰고 싶어서ㅋㅋ 버그 없나 확인해줘",
+      "expected_output": "S 단축키가 refreshWheel의 spinning 가드를 건너뛰어, 도는 중에 원판 항목이 바뀌고 포인터와 결과가 어긋나는 문제를 🔴로 지적한다.",
+      "files": [
+        "evals/files/shuffle-shortcut.patch"
+      ],
+      "expectations": [
+        "npm run check(린트→빌드→테스트 전체)를 실행했다",
+        "스킬 보고 형식을 따랐다: '## 리뷰 결과' 제목과 '자동 검사:' 줄",
+        "도는 중 S로 원판이 바뀌어 포인터와 결과가 어긋나는 문제를 가장 심각한 문제로 지적했다",
+        "refreshWheel()과 spinning 가드를 쓰는 수정안을 냈다",
+        "반복 시뮬레이션으로 불일치 횟수를 수치로 보였다",
+        "Ctrl+S 같은 수식키 조합에도 동작하는 문제를 찾았다"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "clean-drip-additions",
+      "prompt": "드립 멘트 두 개 추가하고 테스트 하나 넣었어. 커밋 전에 봐줘",
+      "expected_output": "문제없는 변경. 🔴를 지어내지 않고 '발견된 문제 없음' 또는 커밋해도 된다는 결론과 확인 범위를 적는다.",
+      "files": [
+        "evals/files/clean-drip-additions.patch"
+      ],
+      "expectations": [
+        "npm run check(린트→빌드→테스트 전체)를 실행했다",
+        "스킬 보고 형식을 따랐다: '## 리뷰 결과' 제목과 '자동 검사:' 줄",
+        "없는 문제를 '반드시 고칠 것'으로 지어내지 않았다",
+        "커밋해도 된다는 결론을 분명히 냈다",
+        "마지막 멘트가 나오는 시점이 7번째로 늦어진다는 동작 변화를 알렸다"
+      ]
+    }
+  ]
+}
